@@ -1159,7 +1159,7 @@ async function apiCall(action, payload = {}) {
     return { success: true, demo: true };
   }
 
-  const isRead = action === "getOptions" || action === "getResults";
+  const isRead = action === "getOptions" || action === "getResults" || action === "getParticipants";
 
   try {
     if (isRead) {
@@ -1186,7 +1186,7 @@ async function apiCall(action, payload = {}) {
 // JSONP: injects a <script> tag so the request bypasses CORS entirely
 function fetchViaJSONP(url) {
   return new Promise((resolve) => {
-    const cbName = "_jsonp_" + Date.now();
+    const cbName = "_jsonp_" + Date.now() + "_" + Math.floor(Math.random() * 9999);
     const scriptId = "jsonp_script_" + cbName;
 
     window[cbName] = (data) => {
