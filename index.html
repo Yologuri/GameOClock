@@ -820,6 +820,7 @@ let hasVoted = false;
 let hasSubmittedOptions = false;
 let isAdmin = false;
 let resultsRevealed = false;
+let phaseOverride = "closed"; // Force results view
 
 // ── Persistence (localStorage for per-user limits) ──
 const STORAGE_KEY = "voteboard_" + new Date().toLocaleDateString("en-CA", {timeZone: TIMEZONE});
@@ -846,6 +847,7 @@ function saveUserState() {
 
 // ── Phase detection ──
 function detectPhase() {
+  if (phaseOverride) return phaseOverride;
   const now = new Date();
   const etNow = new Date(now.toLocaleString("en-US", { timeZone: TIMEZONE }));
   const h = etNow.getHours();
@@ -1333,15 +1335,31 @@ function adminLogin() {
   const pw = document.getElementById("admin-pw").value;
   if (pw === ADMIN_PASSWORD) {
     isAdmin = true;
-    document.getElementById("admin-panel").innerHTML = `
-      <p style="font-size:0.8rem;color:var(--green);font-weight:700;margin-bottom:0.75rem">✓ Admin mode active</p>
-      <button class="btn-primary" onclick="revealResults()" style="background:var(--gold);color:#0f0e11;border:none;font-family:'Syne',sans-serif;font-weight:700">Reveal Results</button>
-    `;
+    renderAdminControls();
     showToast("Admin access granted", "success");
   } else {
     showToast("Wrong password", "error");
     document.getElementById("admin-pw").value = "";
   }
+}
+
+function renderAdminControls() {
+  const panel = document.getElementById("admin-panel");
+  panel.innerHTML = `
+    <p style="font-size:0.8rem;color:var(--green);font-weight:700;margin-bottom:0.75rem">✓ Admin mode active</p>
+    <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap">
+      ${phase !== "closed" ? `<button class="btn-primary" onclick="endVotingNow()" style="background:var(--danger);color:#fff;border:none;font-family:'Syne',sans-serif;font-weight:700">End Voting & Show Results</button>` : ''}
+      <button class="btn-primary" onclick="revealResults()" style="background:var(--gold);color:#0f0e11;border:none;font-family:'Syne',sans-serif;font-weight:700">Reveal Results</button>
+    </div>
+  `;
+}
+
+function endVotingNow() {
+  phaseOverride = "closed";
+  phase = "closed";
+  render();
+  if (isAdmin) renderAdminControls();
+  showToast("Voting ended — results are live!", "success");
 }
 
 async function revealResults() {
