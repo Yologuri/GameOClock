@@ -1086,6 +1086,9 @@ let isAdmin = false;
 let resultsRevealed = false;
 let phaseOverride = "closed"; // Force results view
 let cachedResults = null;
+let cachedGameList = [];
+let cachedRequiredGames = [];
+let cachedTiedGames = [];
 
 // ── Persistence (localStorage for per-user limits) ──
 const STORAGE_KEY = "voteboard_" + new Date().toLocaleDateString("en-CA", {timeZone: TIMEZONE});
@@ -1425,6 +1428,16 @@ async function renderResults(container, append = false) {
   if (!results || results.length === 0) return;
 
   results.sort((a, b) => b.votes - a.votes);
+    // Cache game lists for instant participant rendering
+  if (results.length > 12) {
+    const cutoffVotes = results[11].votes;
+    cachedRequiredGames = results.filter(r => r.votes > cutoffVotes).map(r => r.name);
+    cachedTiedGames = results.filter(r => r.votes === cutoffVotes).map(r => r.name);
+  } else {
+    cachedRequiredGames = results.map(r => r.name);
+    cachedTiedGames = [];
+  }
+  cachedGameList = [...cachedRequiredGames, ...cachedTiedGames];
   const maxVotes = results[0]?.votes || 1;
 
   const html = `
@@ -1604,23 +1617,10 @@ async function renderParticipantsTab(container) {
   let gameList = options.length > 0 ? [...options] : [];
   let requiredGames = [];
   let tiedGames = [];
-  try {
-    const results = await fetchResults();
-    if (results && results.length > 0) {
-      results.sort((a, b) => b.votes - a.votes);
-      if (results.length > 12) {
-        const cutoffVotes = results[11].votes;
-        requiredGames = results.filter(r => r.votes > cutoffVotes).map(r => r.name);
-        tiedGames = results.filter(r => r.votes === cutoffVotes).map(r => r.name);
-        gameList = [...requiredGames, ...tiedGames];
-      } else {
-        requiredGames = results.map(r => r.name);
-        gameList = [...requiredGames];
-      }
-    }
-  } catch (e) {
-    // Fall back to full options list on error
-  }
+  const gameList = cachedGameList.length > 0 ? cachedGameList : [...options];
+  const requiredGames = cachedRequiredGames.length > 0 ? cachedRequiredGames : gameList;
+  const tiedGames = cachedTiedGames;
+  const totalGames = gameList.length;
   const totalGames = gameList.length;
   const myCompleted = Math.min(p.completedGames.filter(g => gameList.includes(g)).length, COMPLETION_GOAL);
   const myPct = COMPLETION_GOAL > 0 ? Math.min(Math.round((myCompleted / COMPLETION_GOAL) * 100), 100) : 0;
