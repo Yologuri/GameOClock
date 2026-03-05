@@ -1569,21 +1569,27 @@ async function renderParticipantsTab(container) {
   if (!container) return;
   const p = loadParticipant();
 
-  // Filter to top 12 games by votes (strict limit of 12)
+  // Filter to top 12 games by votes (keeping ties)
+  const COMPLETION_GOAL = 12;
   let gameList = options.length > 0 ? [...options] : [];
   try {
     const results = await fetchResults();
     if (results && results.length > 0) {
       results.sort((a, b) => b.votes - a.votes);
-      const top = results.slice(0, 12);
-      gameList = top.map(r => r.name);
+      if (results.length > 12) {
+        const cutoffVotes = results[11].votes;
+        const top = results.filter(r => r.votes >= cutoffVotes);
+        gameList = top.map(r => r.name);
+      } else {
+        gameList = results.map(r => r.name);
+      }
     }
   } catch (e) {
     // Fall back to full options list on error
   }
   const totalGames = gameList.length;
-  const myCompleted = p.completedGames.filter(g => gameList.includes(g)).length;
-  const myPct = totalGames > 0 ? Math.round((myCompleted / totalGames) * 100) : 0;
+  const myCompleted = Math.min(p.completedGames.filter(g => gameList.includes(g)).length, COMPLETION_GOAL);
+  const myPct = COMPLETION_GOAL > 0 ? Math.min(Math.round((myCompleted / COMPLETION_GOAL) * 100), 100) : 0;
 
   // Gamertag input / display
   const gamertagSection = p.gamertag
@@ -1622,7 +1628,8 @@ async function renderParticipantsTab(container) {
     ? '<div class="empty">No players yet — be the first to join!</div>'
     : sortedPlayers.map(pl => {
         const isYou = pl.gamertag === p.gamertag && p.gamertag;
-        const pct = totalGames > 0 ? Math.round((pl.count / totalGames) * 100) : 0;
+        const cappedCount = Math.min(pl.count, COMPLETION_GOAL);
+        const pct = COMPLETION_GOAL > 0 ? Math.min(Math.round((cappedCount / COMPLETION_GOAL) * 100), 100) : 0;
         const initial = pl.gamertag.charAt(0);
         return `
           <div class="roster-item ${isYou ? 'is-you' : ''}">
@@ -1633,7 +1640,7 @@ async function renderParticipantsTab(container) {
             </div>
             <div class="roster-progress">
               <div class="roster-bar"><div class="roster-bar-fill" style="width:${pct}%"></div></div>
-              <span class="roster-count">${pl.count}/${totalGames}</span>
+              <span class="roster-count">${cappedCount}/${COMPLETION_GOAL}</span>
             </div>
           </div>`;
       }).join('');
@@ -1647,7 +1654,7 @@ async function renderParticipantsTab(container) {
         ${gamertagSection}
         ${p.gamertag ? `<div class="participants-progress">
           <div class="prog-bar"><div class="prog-fill" style="width:${myPct}%"></div></div>
-          <span class="prog-text">${myCompleted}/${totalGames}</span>
+          <span class="prog-text">${myCompleted}/${COMPLETION_GOAL}</span>
         </div>` : '<p style="font-size:0.8rem;color:var(--muted)">Set your gamertag to join the player list.</p>'}
       </div>
     </div>
